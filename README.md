@@ -259,12 +259,12 @@ After running the seed script, you'll have these test accounts:
 
 ## Available Services
 
-1. **Classic Haircut** - $25 (30 min)
-2. **Beard Trim** - $15 (20 min)
-3. **Hot Shave** - $35 (45 min)
-4. **Kids Haircut** - $18 (25 min)
-5. **Hair Coloring** - $60 (90 min)
-6. **Styling** - $20 (30 min)
+1. **Classic Haircut** - £25 (30 min)
+2. **Beard Trim** - £15 (20 min)
+3. **Hot Shave** - £35 (45 min)
+4. **Kids Haircut** - £18 (25 min)
+5. **Hair Coloring** - £60 (90 min)
+6. **Styling** - £20 (30 min)
 
 ## Development
 

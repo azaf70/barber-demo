@@ -313,7 +313,7 @@ const Services = () => {
                 <CardContent>
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-2xl font-bold text-primary">
-                      ${service.price}
+                      £{service.price}
                     </span>
                     <span className="text-sm text-muted-foreground">
                       {service.duration} min
@@ -806,7 +806,7 @@ const Appointments = ({ user }) => {
                       </div>
                       <div className="space-y-2">
                         <p className="text-sm text-muted-foreground">Price</p>
-                        <p className="font-medium text-primary">${appointment.totalPrice}</p>
+                        <p className="font-medium text-primary">£{appointment.totalPrice}</p>
                       </div>
                     </div>
                     
