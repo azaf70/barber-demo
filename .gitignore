@@ -1,6 +1,9 @@
 # Node
 node_modules/
 
+# Client
+client/node_modules/
+
 # Environment files
 .env
 .env.*
