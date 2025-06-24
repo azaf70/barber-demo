@@ -1,9 +1,9 @@
-import express from 'express';
-import { body, validationResult } from 'express-validator';
-import Barber from '../models/Barber.js';
-import User from '../models/User.js';
-import { protect, authorize } from '../middleware/auth.js';
-
+const express = require('express');
+const { body, validationResult } = require('express-validator');
+const Barber = require('../models/Barber');
+const User = require('../models/User');
+const Shop = require('../models/Shop');
+const auth = require('../middleware/auth');
 const router = express.Router();
 
 // @desc    Get all barbers
@@ -11,26 +11,107 @@ const router = express.Router();
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const { isAvailable, specialty } = req.query;
-    const filter = {};
+    const { 
+      shop, 
+      specialty, 
+      isAvailable = true, 
+      isVerified = true,
+      limit = 20,
+      page = 1
+    } = req.query;
 
-    if (isAvailable !== undefined) filter.isAvailable = isAvailable === 'true';
-    if (specialty) filter.specialties = specialty;
+    const filter = { isAvailable, isVerified };
+    
+    if (shop) {
+      filter.shop = shop;
+    }
+    
+    if (specialty) {
+      filter.specialties = { $in: [specialty] };
+    }
 
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
     const barbers = await Barber.find(filter)
-      .populate('user', 'firstName lastName email phone avatar')
-      .populate('services', 'name price duration category');
+      .populate('user', 'firstName lastName email phone bio')
+      .populate('shop', 'name slug rating')
+      .populate('services.service', 'name price duration category')
+      .sort({ 'rating.average': -1, experience: -1 })
+      .limit(parseInt(limit))
+      .skip(skip);
+
+    const total = await Barber.countDocuments(filter);
 
     res.json({
       success: true,
-      count: barbers.length,
+      data: barbers,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching barbers',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get barbers by shop
+// @route   GET /api/barbers/shop/:shopId
+// @access  Public
+router.get('/shop/:shopId', async (req, res) => {
+  try {
+    const barbers = await Barber.find({ 
+      shop: req.params.shopId, 
+      isAvailable: true,
+      isVerified: true
+    })
+    .populate('user', 'firstName lastName email phone bio')
+    .populate('services.service', 'name price duration category')
+    .sort({ 'rating.average': -1, experience: -1 });
+
+    res.json({
+      success: true,
       data: barbers
     });
   } catch (error) {
-    console.error('Get barbers error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error fetching shop barbers',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get top rated barbers
+// @route   GET /api/barbers/top-rated
+// @access  Public
+router.get('/top-rated', async (req, res) => {
+  try {
+    const barbers = await Barber.find({ 
+      isAvailable: true, 
+      isVerified: true,
+      'rating.average': { $gte: 4.5 }
+    })
+    .populate('user', 'firstName lastName bio')
+    .populate('shop', 'name slug')
+    .sort({ 'rating.average': -1, 'rating.totalReviews': -1 })
+    .limit(10);
+
+    res.json({
+      success: true,
+      data: barbers
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching top rated barbers',
+      error: error.message
     });
   }
 });
@@ -41,13 +122,14 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const barber = await Barber.findById(req.params.id)
-      .populate('user', 'firstName lastName email phone avatar')
-      .populate('services', 'name price duration category');
+      .populate('user', 'firstName lastName email phone bio')
+      .populate('shop', 'name slug address businessHours rating')
+      .populate('services.service', 'name price duration category description');
 
     if (!barber) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Barber not found' 
+        message: 'Barber not found'
       });
     }
 
@@ -56,114 +138,119 @@ router.get('/:id', async (req, res) => {
       data: barber
     });
   } catch (error) {
-    console.error('Get barber error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error fetching barber',
+      error: error.message
     });
   }
 });
 
 // @desc    Create barber profile
 // @route   POST /api/barbers
-// @access  Private (Admin)
-router.post('/', protect, authorize('admin'), [
+// @access  Private (Shop Owner)
+router.post('/', [
+  auth.protect,
+  auth.authorize('shop_owner', 'super_admin'),
   body('user').isMongoId().withMessage('Valid user ID is required'),
-  body('specialties').isArray().withMessage('Specialties must be an array'),
-  body('specialties.*').isIn(['haircut', 'shave', 'beard-trim', 'hair-coloring', 'styling', 'kids-cut']).withMessage('Invalid specialty'),
-  body('experience').isInt({ min: 0 }).withMessage('Experience must be a non-negative integer'),
-  body('bio').optional().isLength({ max: 500 }).withMessage('Bio cannot exceed 500 characters')
+  body('shop').isMongoId().withMessage('Valid shop ID is required'),
+  body('specialties').isArray({ min: 1 }).withMessage('At least one specialty is required'),
+  body('experience').isInt({ min: 0, max: 50 }).withMessage('Experience must be between 0 and 50 years'),
+  body('bio').optional().trim().isLength({ min: 10, max: 500 }).withMessage('Bio must be between 10 and 500 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        errors: errors.array() 
+        message: 'Validation errors',
+        errors: errors.array()
       });
     }
 
-    const { user, specialties, experience, bio, workingHours } = req.body;
-
-    // Check if user exists and is not already a barber
-    const userDoc = await User.findById(user);
-    if (!userDoc) {
-      return res.status(404).json({ 
+    // Check if user can manage this shop
+    if (!req.user.canManageShop(req.body.shop)) {
+      return res.status(403).json({
         success: false,
-        message: 'User not found' 
+        message: 'Not authorized to add barbers to this shop'
       });
     }
 
-    const existingBarber = await Barber.findOne({ user });
-    if (existingBarber) {
-      return res.status(400).json({ 
+    // Check if user exists and is a barber
+    const user = await User.findById(req.body.user);
+    if (!user || user.role !== 'barber') {
+      return res.status(400).json({
         success: false,
-        message: 'User is already a barber' 
+        message: 'User must be a barber'
       });
     }
 
-    // Update user role to barber
-    userDoc.role = 'barber';
-    await userDoc.save();
-
-    const barber = await Barber.create({
-      user,
-      specialties,
-      experience,
-      bio,
-      workingHours
+    // Check if barber already exists for this shop
+    const existingBarber = await Barber.findOne({ 
+      user: req.body.user, 
+      shop: req.body.shop 
     });
+    if (existingBarber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Barber already exists for this shop'
+      });
+    }
 
-    const populatedBarber = await Barber.findById(barber._id)
-      .populate('user', 'firstName lastName email phone avatar')
-      .populate('services', 'name price duration category');
+    const barber = await Barber.create(req.body);
+
+    // Update user's employedAt field
+    await User.findByIdAndUpdate(req.body.user, { 
+      employedAt: req.body.shop 
+    });
 
     res.status(201).json({
       success: true,
-      data: populatedBarber
+      message: 'Barber added successfully',
+      data: barber
     });
   } catch (error) {
-    console.error('Create barber error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error creating barber',
+      error: error.message
     });
   }
 });
 
 // @desc    Update barber profile
 // @route   PUT /api/barbers/:id
-// @access  Private (Barber/Admin)
-router.put('/:id', protect, authorize('barber', 'admin'), [
-  body('specialties').optional().isArray(),
-  body('specialties.*').optional().isIn(['haircut', 'shave', 'beard-trim', 'hair-coloring', 'styling', 'kids-cut']),
-  body('experience').optional().isInt({ min: 0 }),
-  body('bio').optional().isLength({ max: 500 }),
-  body('isAvailable').optional().isBoolean()
+// @access  Private (Shop Owner)
+router.put('/:id', [
+  auth.protect,
+  auth.authorize('shop_owner', 'super_admin'),
+  body('specialties').optional().isArray({ min: 1 }).withMessage('At least one specialty is required'),
+  body('experience').optional().isInt({ min: 0, max: 50 }).withMessage('Experience must be between 0 and 50 years'),
+  body('bio').optional().trim().isLength({ min: 10, max: 500 }).withMessage('Bio must be between 10 and 500 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        errors: errors.array() 
+        message: 'Validation errors',
+        errors: errors.array()
       });
     }
 
     const barber = await Barber.findById(req.params.id);
-    
     if (!barber) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Barber not found' 
+        message: 'Barber not found'
       });
     }
 
-    // Check if user can update this barber profile
-    if (req.user.role === 'barber' && barber.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
+    // Check if user can manage this barber's shop
+    if (!req.user.canManageShop(barber.shop)) {
+      return res.status(403).json({
         success: false,
-        message: 'Not authorized to update this barber profile' 
+        message: 'Not authorized to update this barber'
       });
     }
 
@@ -171,148 +258,164 @@ router.put('/:id', protect, authorize('barber', 'admin'), [
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    ).populate('user', 'firstName lastName email phone avatar')
-     .populate('services', 'name price duration category');
+    )
+    .populate('user', 'firstName lastName email phone bio')
+    .populate('shop', 'name slug');
 
     res.json({
       success: true,
+      message: 'Barber updated successfully',
       data: updatedBarber
     });
   } catch (error) {
-    console.error('Update barber error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error updating barber',
+      error: error.message
     });
   }
 });
 
-// @desc    Update barber working hours
-// @route   PUT /api/barbers/:id/hours
-// @access  Private (Barber/Admin)
-router.put('/:id/hours', protect, authorize('barber', 'admin'), async (req, res) => {
-  try {
-    const { workingHours } = req.body;
-
-    const barber = await Barber.findById(req.params.id);
-    
-    if (!barber) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Barber not found' 
-      });
-    }
-
-    // Check if user can update this barber profile
-    if (req.user.role === 'barber' && barber.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false,
-        message: 'Not authorized to update this barber profile' 
-      });
-    }
-
-    barber.workingHours = workingHours;
-    const updatedBarber = await barber.save();
-
-    const populatedBarber = await Barber.findById(updatedBarber._id)
-      .populate('user', 'firstName lastName email phone avatar')
-      .populate('services', 'name price duration category');
-
-    res.json({
-      success: true,
-      data: populatedBarber
-    });
-  } catch (error) {
-    console.error('Update barber hours error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
-  }
-});
-
-// @desc    Add service to barber
-// @route   PUT /api/barbers/:id/services
-// @access  Private (Admin)
-router.put('/:id/services', protect, authorize('admin'), [
-  body('serviceId').isMongoId().withMessage('Valid service ID is required')
+// @desc    Update barber status
+// @route   PATCH /api/barbers/:id/status
+// @access  Private (Shop Owner)
+router.patch('/:id/status', [
+  auth.protect,
+  auth.authorize('shop_owner', 'super_admin'),
+  body('isAvailable').isBoolean().withMessage('isAvailable must be boolean'),
+  body('isVerified').optional().isBoolean().withMessage('isVerified must be boolean'),
+  body('status').optional().isIn(['active', 'inactive', 'suspended']).withMessage('Invalid status')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        errors: errors.array() 
+        message: 'Validation errors',
+        errors: errors.array()
       });
     }
-
-    const { serviceId } = req.body;
 
     const barber = await Barber.findById(req.params.id);
-    
     if (!barber) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Barber not found' 
+        message: 'Barber not found'
       });
     }
 
-    if (!barber.services.includes(serviceId)) {
-      barber.services.push(serviceId);
-      await barber.save();
+    // Check if user can manage this barber's shop
+    if (!req.user.canManageShop(barber.shop)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this barber'
+      });
     }
 
-    const updatedBarber = await Barber.findById(barber._id)
-      .populate('user', 'firstName lastName email phone avatar')
-      .populate('services', 'name price duration category');
+    const updatedBarber = await Barber.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    )
+    .populate('user', 'firstName lastName email phone bio')
+    .populate('shop', 'name slug');
 
     res.json({
       success: true,
+      message: 'Barber status updated successfully',
       data: updatedBarber
     });
   } catch (error) {
-    console.error('Add service to barber error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error updating barber status',
+      error: error.message
     });
   }
 });
 
-// @desc    Remove service from barber
-// @route   DELETE /api/barbers/:id/services/:serviceId
-// @access  Private (Admin)
-router.delete('/:id/services/:serviceId', protect, authorize('admin'), async (req, res) => {
+// @desc    Remove barber from shop
+// @route   DELETE /api/barbers/:id
+// @access  Private (Shop Owner)
+router.delete('/:id', auth.protect, auth.authorize('shop_owner', 'super_admin'), async (req, res) => {
   try {
     const barber = await Barber.findById(req.params.id);
-    
     if (!barber) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Barber not found' 
+        message: 'Barber not found'
       });
     }
 
-    barber.services = barber.services.filter(
-      service => service.toString() !== req.params.serviceId
-    );
-    await barber.save();
+    // Check if user can manage this barber's shop
+    if (!req.user.canManageShop(barber.shop)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to remove this barber'
+      });
+    }
 
-    const updatedBarber = await Barber.findById(barber._id)
-      .populate('user', 'firstName lastName email phone avatar')
-      .populate('services', 'name price duration category');
+    // Update user's employedAt field
+    await User.findByIdAndUpdate(barber.user, { 
+      employedAt: null 
+    });
+
+    await Barber.findByIdAndDelete(req.params.id);
 
     res.json({
       success: true,
-      data: updatedBarber
+      message: 'Barber removed successfully'
     });
   } catch (error) {
-    console.error('Remove service from barber error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error removing barber',
+      error: error.message
     });
   }
 });
 
-export default router; 
+// @desc    Get barber analytics
+// @route   GET /api/barbers/:id/analytics
+// @access  Private (Shop Owner)
+router.get('/:id/analytics', auth.protect, auth.authorize('shop_owner', 'super_admin'), async (req, res) => {
+  try {
+    const barber = await Barber.findById(req.params.id);
+    if (!barber) {
+      return res.status(404).json({
+        success: false,
+        message: 'Barber not found'
+      });
+    }
+
+    // Check if user can manage this barber's shop
+    if (!req.user.canManageShop(barber.shop)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view barber analytics'
+      });
+    }
+
+    const analytics = {
+      totalAppointments: barber.stats.totalAppointments,
+      totalRevenue: barber.stats.totalRevenue,
+      averageRating: barber.rating.average,
+      totalReviews: barber.rating.totalReviews,
+      completionRate: barber.stats.completionRate,
+      averageServiceTime: barber.stats.averageServiceTime
+    };
+
+    res.json({
+      success: true,
+      data: analytics
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching barber analytics',
+      error: error.message
+    });
+  }
+});
+
+module.exports = router; 

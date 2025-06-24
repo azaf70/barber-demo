@@ -1,8 +1,8 @@
-import express from 'express';
-import { body, validationResult } from 'express-validator';
-import Service from '../models/Service.js';
-import { protect, authorize } from '../middleware/auth.js';
-
+const express = require('express');
+const { body, validationResult } = require('express-validator');
+const Service = require('../models/Service');
+const Shop = require('../models/Shop');
+const auth = require('../middleware/auth');
 const router = express.Router();
 
 // @desc    Get all services
@@ -10,24 +10,118 @@ const router = express.Router();
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const { category, isActive } = req.query;
-    const filter = {};
+    const { 
+      shop, 
+      category, 
+      isActive = true, 
+      isPopular,
+      isFeatured,
+      minPrice,
+      maxPrice,
+      limit = 20,
+      page = 1
+    } = req.query;
 
-    if (category) filter.category = category;
-    if (isActive !== undefined) filter.isActive = isActive === 'true';
-
-    const services = await Service.find(filter).populate('barbers', 'user specialties');
+    const filter = { isActive };
     
+    if (shop) {
+      filter.shop = shop;
+    }
+    
+    if (category) {
+      filter.category = category;
+    }
+    
+    if (isPopular === 'true') {
+      filter.isPopular = true;
+    }
+    
+    if (isFeatured === 'true') {
+      filter.isFeatured = true;
+    }
+    
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const services = await Service.find(filter)
+      .populate('shop', 'name slug rating')
+      .sort({ isFeatured: -1, isPopular: -1, price: 1 })
+      .limit(parseInt(limit))
+      .skip(skip);
+
+    const total = await Service.countDocuments(filter);
+
     res.json({
       success: true,
-      count: services.length,
+      data: services,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching services',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get services by shop
+// @route   GET /api/services/shop/:shopId
+// @access  Public
+router.get('/shop/:shopId', async (req, res) => {
+  try {
+    const services = await Service.find({ 
+      shop: req.params.shopId, 
+      isActive: true 
+    })
+    .populate('shop', 'name slug')
+    .sort({ isPopular: -1, price: 1 });
+
+    res.json({
+      success: true,
       data: services
     });
   } catch (error) {
-    console.error('Get services error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error fetching shop services',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Get popular services
+// @route   GET /api/services/popular
+// @access  Public
+router.get('/popular', async (req, res) => {
+  try {
+    const services = await Service.find({ 
+      isPopular: true, 
+      isActive: true 
+    })
+    .populate('shop', 'name slug rating')
+    .sort({ 'stats.totalBookings': -1 })
+    .limit(10);
+
+    res.json({
+      success: true,
+      data: services
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching popular services',
+      error: error.message
     });
   }
 });
@@ -37,12 +131,13 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id).populate('barbers', 'user specialties');
-    
+    const service = await Service.findById(req.params.id)
+      .populate('shop', 'name slug address businessHours rating');
+
     if (!service) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Service not found' 
+        message: 'Service not found'
       });
     }
 
@@ -51,10 +146,10 @@ router.get('/:id', async (req, res) => {
       data: service
     });
   } catch (error) {
-    console.error('Get service error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error fetching service',
+      error: error.message
     });
   }
 });
@@ -62,19 +157,29 @@ router.get('/:id', async (req, res) => {
 // @desc    Create service
 // @route   POST /api/services
 // @access  Private (Admin/Barber)
-router.post('/', protect, authorize('admin', 'barber'), [
+router.post('/', auth.protect, auth.authorize('admin', 'barber'), [
   body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Service name must be between 2 and 100 characters'),
   body('description').trim().isLength({ min: 10, max: 500 }).withMessage('Description must be between 10 and 500 characters'),
+  body('shop').isMongoId().withMessage('Valid shop ID is required'),
+  body('category').isIn(['haircut', 'beard-trim', 'shave', 'hair-coloring', 'styling', 'kids-cut', 'fade', 'pompadour', 'undercut', 'textured-cut', 'consultation', 'product']).withMessage('Valid category is required'),
   body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
-  body('duration').isInt({ min: 5 }).withMessage('Duration must be at least 5 minutes'),
-  body('category').isIn(['haircut', 'shave', 'beard-trim', 'hair-coloring', 'styling', 'kids-cut', 'other']).withMessage('Invalid category')
+  body('duration').isInt({ min: 5, max: 480 }).withMessage('Duration must be between 5 and 480 minutes')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        errors: errors.array() 
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    // Check if user can manage this shop
+    if (!req.user.canManageShop(req.body.shop)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to create services for this shop'
       });
     }
 
@@ -82,13 +187,14 @@ router.post('/', protect, authorize('admin', 'barber'), [
 
     res.status(201).json({
       success: true,
+      message: 'Service created successfully',
       data: service
     });
   } catch (error) {
-    console.error('Create service error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error creating service',
+      error: error.message
     });
   }
 });
@@ -96,28 +202,35 @@ router.post('/', protect, authorize('admin', 'barber'), [
 // @desc    Update service
 // @route   PUT /api/services/:id
 // @access  Private (Admin/Barber)
-router.put('/:id', protect, authorize('admin', 'barber'), [
-  body('name').optional().trim().isLength({ min: 2, max: 100 }),
-  body('description').optional().trim().isLength({ min: 10, max: 500 }),
-  body('price').optional().isFloat({ min: 0 }),
-  body('duration').optional().isInt({ min: 5 }),
-  body('category').optional().isIn(['haircut', 'shave', 'beard-trim', 'hair-coloring', 'styling', 'kids-cut', 'other'])
+router.put('/:id', auth.protect, auth.authorize('admin', 'barber'), [
+  body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Service name must be between 2 and 100 characters'),
+  body('description').optional().trim().isLength({ min: 10, max: 500 }).withMessage('Description must be between 10 and 500 characters'),
+  body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+  body('duration').optional().isInt({ min: 5, max: 480 }).withMessage('Duration must be between 5 and 480 minutes')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        errors: errors.array() 
+        message: 'Validation errors',
+        errors: errors.array()
       });
     }
 
     const service = await Service.findById(req.params.id);
-    
     if (!service) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Service not found' 
+        message: 'Service not found'
+      });
+    }
+
+    // Check if user can manage this service's shop
+    if (!req.user.canManageShop(service.shop)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this service'
       });
     }
 
@@ -125,17 +238,72 @@ router.put('/:id', protect, authorize('admin', 'barber'), [
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    );
+    ).populate('shop', 'name slug');
 
     res.json({
       success: true,
+      message: 'Service updated successfully',
       data: updatedService
     });
   } catch (error) {
-    console.error('Update service error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error updating service',
+      error: error.message
+    });
+  }
+});
+
+// @desc    Update service status
+// @route   PATCH /api/services/:id/status
+// @access  Private (Admin/Barber)
+router.patch('/:id/status', auth.protect, auth.authorize('admin', 'barber'), [
+  body('isActive').isBoolean().withMessage('isActive must be boolean'),
+  body('isPopular').optional().isBoolean().withMessage('isPopular must be boolean'),
+  body('isFeatured').optional().isBoolean().withMessage('isFeatured must be boolean')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
+      });
+    }
+
+    const service = await Service.findById(req.params.id);
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found'
+      });
+    }
+
+    // Check if user can manage this service's shop
+    if (!req.user.canManageShop(service.shop)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this service'
+      });
+    }
+
+    const updatedService = await Service.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    ).populate('shop', 'name slug');
+
+    res.json({
+      success: true,
+      message: 'Service status updated successfully',
+      data: updatedService
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating service status',
+      error: error.message
     });
   }
 });
@@ -143,30 +311,78 @@ router.put('/:id', protect, authorize('admin', 'barber'), [
 // @desc    Delete service
 // @route   DELETE /api/services/:id
 // @access  Private (Admin)
-router.delete('/:id', protect, authorize('admin'), async (req, res) => {
+router.delete('/:id', auth.protect, auth.authorize('admin'), async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
-    
     if (!service) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Service not found' 
+        message: 'Service not found'
       });
     }
 
-    await service.deleteOne();
+    // Check if user can manage this service's shop
+    if (!req.user.canManageShop(service.shop)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to delete this service'
+      });
+    }
+
+    await Service.findByIdAndDelete(req.params.id);
 
     res.json({
       success: true,
       message: 'Service deleted successfully'
     });
   } catch (error) {
-    console.error('Delete service error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: 'Error deleting service',
+      error: error.message
     });
   }
 });
 
-export default router; 
+// @desc    Get service analytics
+// @route   GET /api/services/:id/analytics
+// @access  Private (Admin/Barber)
+router.get('/:id/analytics', auth.protect, auth.authorize('admin', 'barber'), async (req, res) => {
+  try {
+    const service = await Service.findById(req.params.id);
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service not found'
+      });
+    }
+
+    // Check if user can manage this service's shop
+    if (!req.user.canManageShop(service.shop)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to view service analytics'
+      });
+    }
+
+    const analytics = {
+      totalBookings: service.stats.totalBookings,
+      totalRevenue: service.stats.totalRevenue,
+      averageRating: service.stats.averageRating,
+      totalReviews: service.stats.totalReviews
+    };
+
+    res.json({
+      success: true,
+      data: analytics
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching service analytics',
+      error: error.message
+    });
+  }
+});
+
+module.exports = router; 
