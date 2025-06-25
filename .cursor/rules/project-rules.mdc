@@ -1,0 +1,1829 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# BarberHub - Complete Requirements & Architecture Guide
+
+## 📋 Table of Contents
+- [Project Overview](mdc:#project-overview)
+- [Tech Stack & Architecture](mdc:#tech-stack--architecture)
+- [Project Structure](mdc:#project-structure)
+- [Domain Models](mdc:#domain-models)
+- [Feature Requirements](mdc:#feature-requirements)
+- [API Design Guidelines](mdc:#api-design-guidelines)
+- [Frontend Architecture](mdc:#frontend-architecture)
+- [Security & Authentication](mdc:#security--authentication)
+- [Testing Strategy](mdc:#testing-strategy)
+- [Development Guidelines](mdc:#development-guidelines)
+- [Cursor-Specific Optimizations](mdc:#cursor-specific-optimizations)
+
+## 🎯 Project Overview
+
+BarberHub is a comprehensive booking platform that connects customers with barber shops, enabling seamless appointment scheduling and business management. The platform serves three distinct user types: **Customers**, **Barbers**, and **Super Admins**.
+
+### Core Value Propositions
+- **For Customers**: Easy discovery and booking of barber services with location-based search
+- **For Barbers**: Complete business management with multi-shop support and analytics
+- **For Admins**: Platform oversight with financial controls and user management
+
+## 🛠 Tech Stack & Architecture
+
+### Frontend Stack
+```typescript
+// Core Technologies
+- React 18.3+ with TypeScript 5.5+
+- Vite 6 (Build tool & dev server)
+- Tailwind CSS 4 (Styling)
+- shadcn/ui + Radix Primitives (UI Components)
+
+// State Management & Data Fetching
+- TanStack Query 5 (Server state)
+- Redux Toolkit 2.2 + RTK Query (Client state)
+- React Hook Form 8 + Zod 3 (Forms & validation)
+
+// Additional Tools
+- React Router 7 (Navigation)
+- Framer Motion 11 (Animations)
+- React Hot Toast (Notifications)
+```
+
+### Backend Stack
+```typescript
+// Core Technologies
+- Node.js 20 LTS
+- Express 5 RC with TypeScript 5.5+
+- MongoDB 7 with Mongoose 8
+- JWT Authentication (Access + Refresh tokens)
+
+// Additional Services
+- Stripe API (2025-05 version) for payments
+- Redis 7 (Caching & session store)
+- Nodemailer (Email notifications)
+- Cloudinary (Image uploads)
+```
+
+### Development Tools
+```json
+{
+  "packageManager": "pnpm 9",
+  "linting": "ESLint 9 + Prettier 3",
+  "testing": "Vitest 1 + React Testing Library 15",
+  "e2e": "Playwright 1.40+",
+  "git": "Husky 9 + lint-staged",
+  "containerization": "Docker Compose v2.24"
+}
+```
+
+## 📁 Project Structure
+
+### Recommended File Organization
+```
+barberhub/
+├── client/                          # Frontend React application
+│   ├── src/
+│   │   ├── features/               # Feature-based organization
+│   │   │   ├── customers/
+│   │   │   │   ├── components/     # Customer-specific components
+│   │   │   │   ├── hooks/          # Customer-specific hooks
+│   │   │   │   ├── pages/          # Customer pages
+│   │   │   │   ├── services/       # API calls
+│   │   │   │   └── types/          # Customer types
+│   │   │   ├── barbers/
+│   │   │   │   ├── components/
+│   │   │   │   ├── hooks/
+│   │   │   │   ├── pages/
+│   │   │   │   ├── services/
+│   │   │   │   └── types/
+│   │   │   └── admin/
+│   │   │       ├── components/
+│   │   │       ├── hooks/
+│   │   │       ├── pages/
+│   │   │       ├── services/
+│   │   │       └── types/
+│   │   ├── shared/
+│   │   │   ├── components/         # Reusable UI components
+│   │   │   ├── hooks/              # Shared hooks
+│   │   │   ├── utils/              # Helper functions
+│   │   │   ├── constants/          # App constants
+│   │   │   ├── types/              # Shared TypeScript types
+│   │   │   └── schemas/            # Zod validation schemas
+│   │   ├── store/                  # Redux store configuration
+│   │   ├── routes/                 # Route definitions
+│   │   ├── styles/                 # Global styles
+│   │   └── main.tsx                # App entry point
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.ts
+├── server/                          # Backend Node.js application
+│   ├── src/
+│   │   ├── modules/                # Feature modules
+│   │   │   ├── customers/
+│   │   │   │   ├── controllers/    # Route handlers
+│   │   │   │   ├── services/       # Business logic
+│   │   │   │   ├── routes/         # Route definitions
+│   │   │   │   ├── middleware/     # Module-specific middleware
+│   │   │   │   └── validators/     # Request validation
+│   │   │   ├── barbers/
+│   │   │   ├── admin/
+│   │   │   └── auth/
+│   │   ├── models/                 # Mongoose schemas
+│   │   ├── middleware/             # Global middleware
+│   │   ├── config/                 # Configuration files
+│   │   ├── utils/                  # Utility functions
+│   │   ├── types/                  # TypeScript types
+│   │   ├── constants/              # App constants
+│   │   └── server.ts               # Express server setup
+│   ├── tests/                      # Test files
+│   ├── package.json
+│   └── tsconfig.json
+├── shared/                          # Shared packages (optional monorepo)
+│   ├── types/                      # Shared TypeScript definitions
+│   ├── schemas/                    # Shared Zod schemas
+│   └── constants/                  # Shared constants
+├── docs/                           # Documentation
+├── scripts/                        # Build and deployment scripts
+├── docker-compose.yml
+├── .env.example
+└── README.md
+```
+
+## 🗄 Domain Models
+
+### Core Entities
+
+#### User Model
+```typescript
+interface User {
+  _id: ObjectId;
+  email: string;
+  passwordHash: string;
+  role: 'customer' | 'barber' | 'admin';
+  profile: {
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    avatar?: string;
+  };
+  preferences: {
+    notifications: boolean;
+    theme: 'light' | 'dark' | 'system';
+  };
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+#### Customer Model
+```typescript
+interface Customer {
+  _id: ObjectId;
+  userId: ObjectId;
+  favoriteShops: ObjectId[];
+  location: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+    address?: string;
+  };
+  bookingHistory: ObjectId[];
+  loyaltyPoints: number;
+}
+```
+
+#### Barber Model
+```typescript
+interface Barber {
+  _id: ObjectId;
+  userId: ObjectId;
+  businessName: string;
+  businessLicense?: string;
+  shops: ObjectId[];
+  stripeAccountId?: string;
+  commissionRate: number; // Percentage (0-100)
+  totalEarnings: number;
+}
+```
+
+#### BarberShop Model
+```typescript
+interface BarberShop {
+  _id: ObjectId;
+  name: string; // Unique index
+  slug: string; // URL-friendly name
+  ownerId: ObjectId; // Reference to Barber
+  description: string;
+  location: {
+    type: 'Point';
+    coordinates: [number, number];
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  contact: {
+    phone: string;
+    email?: string;
+    website?: string;
+  };
+  hours: {
+    [key: string]: { // 'monday', 'tuesday', etc.
+      isOpen: boolean;
+      open: string; // "09:00"
+      close: string; // "18:00"
+    };
+  };
+  images: string[];
+  services: ObjectId[];
+  employees: ObjectId[];
+  rating: {
+    average: number;
+    count: number;
+  };
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+#### Employee Model
+```typescript
+interface Employee {
+  _id: ObjectId;
+  shopId: ObjectId;
+  name: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+  services: ObjectId[]; // Services this employee can perform
+  availability: {
+    [key: string]: { // 'monday', 'tuesday', etc.
+      isAvailable: boolean;
+      slots: Array<{
+        start: string; // "09:00"
+        end: string;   // "17:00"
+      }>;
+    };
+  };
+  bookingBuffer: number; // Minutes between bookings
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+#### Service Model
+```typescript
+interface Service {
+  _id: ObjectId;
+  shopId: ObjectId;
+  name: string;
+  description: string;
+  category: string; // 'haircut', 'beard', 'styling', etc.
+  duration: number; // Minutes
+  price: number; // In cents
+  images?: string[];
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+#### Booking Model
+```typescript
+interface Booking {
+  _id: ObjectId;
+  customerId: ObjectId;
+  shopId: ObjectId;
+  employeeId: ObjectId;
+  serviceId: ObjectId;
+  appointmentDate: Date;
+  startTime: string; // "14:30"
+  endTime: string;   // "15:30"
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
+  cancellationReason?: string;
+  cancelledBy?: 'customer' | 'barber' | 'system';
+  payment: {
+    totalAmount: number; // In cents
+    depositAmount: number; // In cents
+    stripePaymentIntentId?: string;
+    status: 'pending' | 'paid' | 'refunded' | 'failed';
+  };
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+#### Review Model
+```typescript
+interface Review {
+  _id: ObjectId;
+  bookingId: ObjectId;
+  customerId: ObjectId;
+  shopId: ObjectId;
+  employeeId: ObjectId;
+  rating: number; // 1-5
+  comment: string;
+  images?: string[];
+  reply?: {
+    content: string;
+    repliedAt: Date;
+  };
+  isVerified: boolean;
+  isVisible: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## 🎯 Feature Requirements
+
+### 👥 Customer Features
+
+#### 1. Discovery & Search
+- **Location-based search**: Find barber shops within specified radius
+- **Service filtering**: Filter by specific services (haircut, beard trim, etc.)
+- **Advanced filters**: Price range, rating, availability, distance
+- **Real-time availability**: See available time slots in real-time
+- **Shop details**: View shop information, photos, reviews, and services
+
+#### 2. Booking Management
+- **Service selection**: Choose specific services and preferred employee
+- **Time slot booking**: Select from available time slots
+- **Deposit payment**: Pay required deposit (10-20% of service cost)
+- **Booking confirmation**: Receive email/SMS confirmation
+- **Appointment reminders**: Automated reminders 24h and 2h before appointment
+
+#### 3. Account Management
+- **Profile management**: Update personal information and preferences
+- **Booking history**: View past and upcoming appointments
+- **Favorite shops**: Save preferred barber shops for quick access
+- **Cancellation policy**: Cancel up to 48 hours before appointment
+- **Refund processing**: Automatic refund for valid cancellations
+
+#### 4. Review System
+- **Verified reviews**: Only customers who completed appointments can review
+- **Rating system**: 5-star rating with written comments
+- **Photo uploads**: Add photos to reviews
+- **Review editing**: Edit reviews within 7 days of posting
+
+### ✂️ Barber Features
+
+#### 1. Business Management
+- **Multi-shop support**: Manage multiple barber shop locations
+- **Shop setup**: Create and configure shop details, hours, and services
+- **Employee management**: Add, edit, and manage employee profiles
+- **Service catalog**: Define services, pricing, and duration
+
+#### 2. Scheduling & Availability
+- **Availability management**: Set employee working hours and breaks
+- **Real-time calendar**: View and manage all appointments
+- **Booking acceptance**: Approve or decline booking requests
+- **Schedule modifications**: Reschedule appointments when necessary
+
+#### 3. Financial Management
+- **Earnings dashboard**: View daily, weekly, and monthly earnings
+- **Commission tracking**: Monitor platform commission deductions
+- **Payout management**: Manage Stripe payouts and banking details
+- **Expense tracking**: Track business expenses and calculate profit
+
+#### 4. Customer Relations
+- **Appointment management**: View customer details and booking history
+- **Cancellation rights**: Cancel appointments with valid reasons
+- **Review responses**: Respond to customer reviews
+- **Customer communication**: Send messages regarding appointments
+
+### 🔧 Super Admin Features
+
+#### 1. Platform Overview
+- **User management**: View and manage all users (customers, barbers)
+- **Shop management**: Oversee all barber shops and their operations
+- **System analytics**: Platform usage statistics and trends
+- **Revenue tracking**: Monitor platform revenue and commission collection
+
+#### 2. Financial Controls
+- **Commission management**: Set and adjust commission rates per shop
+- **Payment oversight**: Monitor all transactions and payouts
+- **Refund processing**: Handle disputed refunds and chargebacks
+- **Financial reporting**: Generate comprehensive financial reports
+
+#### 3. Content Moderation
+- **Review moderation**: Monitor and moderate inappropriate reviews
+- **User account management**: Suspend or ban problematic users
+- **Content filtering**: Ensure all shop and service content meets guidelines
+- **Dispute resolution**: Handle conflicts between customers and barbers
+
+#### 4. System Administration
+- **Platform configuration**: Manage system settings and features
+- **Security monitoring**: Track suspicious activities and security threats
+- **Backup management**: Ensure data backup and recovery procedures
+- **Feature rollouts**: Manage new feature deployments
+
+## 🔌 API Design Guidelines
+
+### RESTful API Structure
+```
+Base URL: https://api.barberhub.com/v1
+
+Authentication Routes:
+POST   /auth/register
+POST   /auth/login
+POST   /auth/refresh
+POST   /auth/logout
+POST   /auth/forgot-password
+POST   /auth/reset-password
+POST   /auth/verify-email
+
+Customer Routes:
+GET    /customers/profile
+PUT    /customers/profile
+GET    /customers/bookings
+POST   /customers/bookings
+PUT    /customers/bookings/:id
+DELETE /customers/bookings/:id
+GET    /customers/favorites
+POST   /customers/favorites
+DELETE /customers/favorites/:shopId
+POST   /customers/reviews
+PUT    /customers/reviews/:id
+
+Shop Routes:
+GET    /shops
+GET    /shops/:id
+GET    /shops/:id/services
+GET    /shops/:id/employees
+GET    /shops/:id/availability
+GET    /shops/:id/reviews
+GET    /shops/search
+
+Barber Routes:
+GET    /barbers/profile
+PUT    /barbers/profile
+GET    /barbers/shops
+POST   /barbers/shops
+PUT    /barbers/shops/:id
+DELETE /barbers/shops/:id
+GET    /barbers/bookings
+PUT    /barbers/bookings/:id
+GET    /barbers/earnings
+POST   /barbers/employees
+PUT    /barbers/employees/:id
+DELETE /barbers/employees/:id
+POST   /barbers/services
+PUT    /barbers/services/:id
+DELETE /barbers/services/:id
+
+Admin Routes:
+GET    /admin/users
+PUT    /admin/users/:id
+DELETE /admin/users/:id
+GET    /admin/shops
+PUT    /admin/shops/:id
+DELETE /admin/shops/:id
+GET    /admin/analytics
+GET    /admin/revenue
+PUT    /admin/commission/:shopId
+```
+
+### Response Format Standards
+```typescript
+// Success Response
+interface ApiResponse<T> {
+  success: true;
+  data: T;
+  message?: string;
+  metadata?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    hasMore?: boolean;
+  };
+}
+
+// Error Response
+interface ApiError {
+  success: false;
+  message: string;
+  errors?: Array<{
+    field: string;
+    message: string;
+  }>;
+  code?: string;
+}
+```
+
+### Request/Response Examples
+```typescript
+// Search Shops Request
+GET /shops/search?lat=40.7128&lng=-74.0060&radius=10&services=haircut&available=true
+
+// Response
+{
+  "success": true,
+  "data": [
+    {
+      "id": "shop123",
+      "name": "Elite Cuts",
+      "location": { "lat": 40.7138, "lng": -74.0055 },
+      "distance": 0.8,
+      "rating": 4.5,
+      "services": ["haircut", "beard"],
+      "nextAvailable": "2025-06-26T10:00:00Z"
+    }
+  ],
+  "metadata": {
+    "total": 15,
+    "page": 1,
+    "limit": 10,
+    "hasMore": true
+  }
+}
+```
+
+## 🎨 Frontend Architecture
+
+### Component Organization
+```typescript
+// Component Hierarchy
+interface ComponentStructure {
+  // Atomic Components (shared/components/ui)
+  Button: Component;
+  Input: Component;
+  Modal: Component;
+  Card: Component;
+  
+  // Compound Components (shared/components)
+  SearchBar: Component;
+  BookingCard: Component;
+  ShopCard: Component;
+  ReviewCard: Component;
+  
+  // Feature Components (features/*/components)
+  CustomerDashboard: Component;
+  BarberSchedule: Component;
+  AdminAnalytics: Component;
+  
+  // Page Components (features/*/pages)
+  CustomerHomePage: Component;
+  BarberDashboardPage: Component;
+  AdminOverviewPage: Component;
+}
+```
+
+### State Management Strategy
+```typescript
+// Redux Store Structure
+interface RootState {
+  auth: {
+    user: User | null;
+    token: string | null;
+    isAuthenticated: boolean;
+    loading: boolean;
+  };
+  
+  ui: {
+    theme: 'light' | 'dark' | 'system';
+    sidebarOpen: boolean;
+    modals: Record<string, boolean>;
+    notifications: Notification[];
+  };
+  
+  customer: {
+    profile: CustomerProfile | null;
+    bookings: Booking[];
+    favorites: BarberShop[];
+    searchResults: BarberShop[];
+    searchFilters: SearchFilters;
+  };
+  
+  barber: {
+    profile: BarberProfile | null;
+    shops: BarberShop[];
+    bookings: Booking[];
+    earnings: EarningsData;
+    employees: Employee[];
+  };
+  
+  admin: {
+    users: User[];
+    analytics: AnalyticsData;
+    revenue: RevenueData;
+  };
+}
+```
+
+### Custom Hooks Examples
+```typescript
+// Custom hooks for data fetching
+export const useShops = (filters: ShopFilters) => {
+  return useQuery({
+    queryKey: ['shops', filters],
+    queryFn: () => shopService.search(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+export const useBookings = (userId: string) => {
+  return useQuery({
+    queryKey: ['bookings', userId],
+    queryFn: () => bookingService.getByUser(userId),
+    enabled: !!userId,
+  });
+};
+
+export const useCreateBooking = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: bookingService.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      toast.success('Booking created successfully!');
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+};
+```
+
+## 🔐 Security & Authentication
+
+### Authentication Flow
+```typescript
+// JWT Token Structure
+interface JWTPayload {
+  userId: string;
+  role: 'customer' | 'barber' | 'admin';
+  email: string;
+  iat: number;
+  exp: number;
+}
+
+// Authentication Service
+class AuthService {
+  async login(email: string, password: string): Promise<AuthResponse> {
+    // Validate credentials
+    // Generate access token (15 minutes)
+    // Generate refresh token (7 days)
+    // Return tokens and user data
+  }
+  
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    // Validate refresh token
+    // Generate new access token
+    // Return new tokens
+  }
+  
+  async logout(refreshToken: string): Promise<void> {
+    // Invalidate refresh token
+    // Clear client-side tokens
+  }
+}
+```
+
+### Security Middleware
+```typescript
+// Rate limiting configuration
+const rateLimiter = {
+  auth: rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // 5 attempts per window
+    message: 'Too many login attempts',
+  }),
+  
+  api: rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100, // 100 requests per window
+    message: 'Too many requests',
+  }),
+  
+  booking: rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 10, // 10 bookings per hour
+    message: 'Too many booking attempts',
+  }),
+};
+
+// Input validation and sanitization
+const validateInput = (schema: ZodSchema) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      schema.parse(req.body);
+      next();
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error.errors,
+      });
+    }
+  };
+};
+```
+
+### Data Protection
+```typescript
+// Password hashing
+const hashPassword = async (password: string): Promise<string> => {
+  const saltRounds = 12;
+  return bcrypt.hash(password, saltRounds);
+};
+
+// Personal data encryption
+const encryptSensitiveData = (data: string): string => {
+  const cipher = crypto.createCipher('aes-256-cbc', process.env.ENCRYPTION_KEY);
+  let encrypted = cipher.update(data, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return encrypted;
+};
+
+// GDPR compliance helpers
+const anonymizeUser = async (userId: string): Promise<void> => {
+  await User.findByIdAndUpdate(userId, {
+    email: `deleted_${Date.now()}@example.com`,
+    'profile.firstName': 'Deleted',
+    'profile.lastName': 'User',
+    'profile.phone': null,
+    isAnonymized: true,
+  });
+};
+```
+
+## 🧪 Testing Strategy
+
+### Testing Pyramid
+```typescript
+// Unit Tests (70% coverage target)
+describe('BookingService', () => {
+  describe('createBooking', () => {
+    it('should create booking with valid data', async () => {
+      const bookingData = {
+        customerId: 'customer123',
+        shopId: 'shop123',
+        serviceId: 'service123',
+        appointmentDate: '2025-06-26T10:00:00Z',
+      };
+      
+      const result = await bookingService.create(bookingData);
+      expect(result).toMatchObject({
+        customerId: bookingData.customerId,
+        status: 'pending',
+      });
+    });
+    
+    it('should throw error for invalid date', async () => {
+      const bookingData = {
+        customerId: 'customer123',
+        shopId: 'shop123',
+        serviceId: 'service123',
+        appointmentDate: '2025-06-20T10:00:00Z', // Past date
+      };
+      
+      await expect(bookingService.create(bookingData))
+        .rejects.toThrow('Cannot book appointments in the past');
+    });
+  });
+});
+
+// Integration Tests (20% coverage target)
+describe('Booking API', () => {
+  describe('POST /bookings', () => {
+    it('should create booking successfully', async () => {
+      const response = await request(app)
+        .post('/api/v1/bookings')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .send(validBookingData)
+        .expect(201);
+        
+      expect(response.body).toMatchObject({
+        success: true,
+        data: expect.objectContaining({
+          customerId: expect.any(String),
+          status: 'pending',
+        }),
+      });
+    });
+  });
+});
+
+// E2E Tests (10% coverage target)
+describe('Booking Flow', () => {
+  test('customer can complete full booking process', async ({ page }) => {
+    // Login as customer
+    await page.goto('/login');
+    await page.fill('[data-testid=email]', 'customer@example.com');
+    await page.fill('[data-testid=password]', 'password123');
+    await page.click('[data-testid=login-button]');
+    
+    // Search for shops
+    await page.goto('/shops');
+    await page.fill('[data-testid=search-input]', 'Elite Cuts');
+    await page.click('[data-testid=search-button]');
+    
+    // Select shop and service
+    await page.click('[data-testid=shop-card]:first-child');
+    await page.click('[data-testid=service-card]:first-child');
+    
+    // Book appointment
+    await page.click('[data-testid=time-slot]:first-child');
+    await page.click('[data-testid=book-button]');
+    
+    // Complete payment
+    await page.fill('[data-testid=card-number]', '4242424242424242');
+    await page.fill('[data-testid=card-expiry]', '12/28');
+    await page.fill('[data-testid=card-cvc]', '123');
+    await page.click('[data-testid=pay-button]');
+    
+    // Verify booking confirmation
+    await expect(page.locator('[data-testid=booking-confirmation]')).toBeVisible();
+  });
+});
+```
+
+## 💻 Development Guidelines
+
+### Code Quality Standards
+```typescript
+// ESLint Configuration
+module.exports = {
+  extends: [
+    '@typescript-eslint/recommended',
+    'airbnb-typescript',
+    'prettier',
+  ],
+  rules: {
+    '@typescript-eslint/no-unused-vars': 'error',
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/explicit-function-return-type': 'warn',
+    'prefer-const': 'error',
+    'no-var': 'error',
+    'no-console': 'warn',
+  },
+};
+
+// Prettier Configuration
+module.exports = {
+  semi: true,
+  trailingComma: 'es5',
+  singleQuote: true,
+  printWidth: 80,
+  tabWidth: 2,
+  useTabs: false,
+};
+```
+
+### Git Workflow
+```bash
+# Branch naming convention
+feature/TICKET-123-add-booking-system
+bugfix/TICKET-456-fix-authentication
+hotfix/TICKET-789-critical-payment-bug
+
+# Commit message format (Conventional Commits)
+feat(booking): add appointment scheduling functionality
+fix(auth): resolve JWT token expiration issue
+docs(readme): update installation instructions
+test(booking): add unit tests for booking service
+refactor(user): simplify user profile update logic
+```
+
+### Code Review Checklist
+- [ ] Code follows TypeScript strict mode
+- [ ] All functions have proper type annotations
+- [ ] Error handling is implemented
+- [ ] Unit tests are included
+- [ ] API endpoints are documented
+- [ ] Security best practices are followed
+- [ ] Performance considerations are addressed
+- [ ] Accessibility requirements are met
+- [ ] Mobile responsiveness is ensured
+
+## 🎯 Cursor-Specific Optimizations
+
+### AI-Friendly Code Patterns
+```typescript
+// 1. Explicit type definitions for better AI understanding
+interface BookingCreateRequest {
+  customerId: string;
+  shopId: string;
+  employeeId: string;
+  serviceId: string;
+  appointmentDate: string; // ISO 8601 format
+  notes?: string;
+}
+
+interface BookingCreateResponse {
+  id: string;
+  status: 'pending' | 'confirmed';
+  paymentIntentId?: string;
+  totalAmount: number;
+  depositAmount: number;
+}
+
+// 2. Clear function signatures with JSDoc
+/**
+ * Creates a new booking appointment
+ * @param bookingData - The booking information
+ * @returns Promise resolving to booking details
+ * @throws BookingError when validation fails or slot is unavailable
+ */
+export async function createBooking(
+  bookingData: BookingCreateRequest
+): Promise<BookingCreateResponse> {
+  // Implementation here
+}
+
+// 3. Consistent error handling patterns
+export class BookingError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public statusCode: number = 400
+  ) {
+    super(message);
+    this.name = 'BookingError';
+  }
+}
+
+// 4. Clear separation of concerns
+export class BookingController {
+  constructor(
+    private bookingService: BookingService,
+    private paymentService: PaymentService,
+    private notificationService: NotificationService
+  ) {}
+
+  async createBooking(req: Request, res: Response): Promise<void> {
+    try {
+      const booking = await this.bookingService.create(req.body);
+      const payment = await this.paymentService.createIntent(booking);
+      await this.notificationService.sendConfirmation(booking);
+      
+      res.status(201).json({ success: true, data: booking });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+}
+```
+
+### File Organization for AI Context
+```typescript
+// 1. Index files for easy imports
+// features/customers/index.ts
+export { CustomerDashboard } from './components/CustomerDashboard';
+export { useCustomerBookings } from './hooks/useCustomerBookings';
+export { customerService } from './services/customerService';
+export type { Customer, CustomerProfile } from './types';
+
+// 2. Consistent naming conventions
+// Components: PascalCase
+export const BookingCard = ({ booking }: { booking: Booking }) => {};
+
+// Hooks: camelCase with 'use' prefix
+export const useBookingCreate = () => {};
+
+// Services: camelCase with 'Service' suffix
+export const bookingService = {};
+
+// Types: PascalCase
+export interface BookingData {}
+
+// 3. Clear folder structure with README files
+// features/customers/README.md
+# Customer Feature Module
+
+## Overview
+Handles all customer-related functionality including booking management, shop discovery, and reviews.
+
+## Components
+- `CustomerDashboard`: Main dashboard view
+- `BookingCard`: Individual booking display
+- `ShopSearchResults`: Shop listing component
+
+## Hooks
+- `useCustomerBookings`: Manage customer bookings
+- `useShopSearch`: Handle shop search functionality
+- `useBookingCreate`: Create new bookings
+
+## Services
+- `customerService`: Customer-related API calls
+- `bookingService`: Booking management
+- `reviewService`: Review management
+```
+
+### Environment Configuration
+```typescript
+// config/environment.ts
+interface EnvironmentConfig {
+  NODE_ENV: 'development' | 'production' | 'test';
+  PORT: number;
+  
+  // Database
+  MONGODB_URI: string;
+  REDIS_URL?: string;
+  
+  // Authentication
+  JWT_SECRET: string;
+  JWT_REFRESH_SECRET: string;
+  JWT_EXPIRES_IN: string;
+  JWT_REFRESH_EXPIRES_IN: string;
+  
+  // Stripe
+  STRIPE_PUBLIC_KEY: string;
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
+  
+  // Email
+  SMTP_HOST: string;
+  SMTP_PORT: number;
+  SMTP_USER: string;
+  SMTP_PASS: string;
+  
+  // File Upload
+  CLOUDINARY_NAME: string;
+  CLOUDINARY_API_KEY: string;
+  CLOUDINARY_API_SECRET: string;
+  
+  // External APIs
+  GOOGLE_MAPS_API_KEY: string;
+  TWILIO_ACCOUNT_SID?: string;
+  TWILIO_AUTH_TOKEN?: string;
+}
+
+// Validation schema for environment variables
+export const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']),
+  PORT: z.coerce.number().default(3000),
+  MONGODB_URI: z.string().url(),
+  JWT_SECRET: z.string().min(32),
+  // ... other validations
+});
+
+export const env = envSchema.parse(process.env);
+```
+
+### Database Optimization Patterns
+```typescript
+// 1. Efficient MongoDB queries with proper indexing
+// models/BarberShop.ts
+const barberShopSchema = new Schema({
+  name: { type: String, required: true, unique: true },
+  location: {
+    type: { type: String, enum: ['Point'], required: true },
+    coordinates: { type: [Number], required: true }
+  },
+  ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  services: [{ type: Schema.Types.ObjectId, ref: 'Service' }],
+  rating: {
+    average: { type: Number, default: 0 },
+    count: { type: Number, default: 0 }
+  },
+  isActive: { type: Boolean, default: true }
+});
+
+// Create indexes for performance
+barberShopSchema.index({ location: '2dsphere' }); // Geospatial queries
+barberShopSchema.index({ name: 'text', description: 'text' }); // Text search
+barberShopSchema.index({ ownerId: 1, isActive: 1 }); // Owner queries
+barberShopSchema.index({ 'rating.average': -1 }); // Rating-based sort
+
+// 2. Aggregation pipelines for complex queries
+export class ShopService {
+  async searchNearby(lat: number, lng: number, radius: number = 10) {
+    return BarberShop.aggregate([
+      {
+        $geoNear: {
+          near: { type: 'Point', coordinates: [lng, lat] },
+          distanceField: 'distance',
+          maxDistance: radius * 1000, // Convert km to meters
+          spherical: true,
+          query: { isActive: true }
+        }
+      },
+      {
+        $lookup: {
+          from: 'services',
+          localField: 'services',
+          foreignField: '_id',
+          as: 'serviceDetails'
+        }
+      },
+      {
+        $lookup: {
+          from: 'reviews',
+          localField: '_id',
+          foreignField: 'shopId',
+          as: 'reviews'
+        }
+      },
+      {
+        $addFields: {
+          reviewCount: { $size: '$reviews' },
+          averageRating: { $avg: '$reviews.rating' }
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          location: 1,
+          distance: 1,
+          serviceDetails: 1,
+          rating: 1,
+          images: { $slice: ['$images', 3] } // Limit images for performance
+        }
+      },
+      { $sort: { distance: 1 } },
+      { $limit: 20 }
+    ]);
+  }
+}
+```
+
+### Performance Optimization Strategies
+```typescript
+// 1. React Query configuration for optimal caching
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
+      retry: (failureCount, error) => {
+        if (error.status === 404) return false;
+        return failureCount < 3;
+      },
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: 'always',
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
+
+// 2. Optimistic updates for better UX
+export const useToggleFavorite = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ shopId, isFavorite }: { shopId: string; isFavorite: boolean }) =>
+      customerService.toggleFavorite(shopId, isFavorite),
+    
+    onMutate: async ({ shopId, isFavorite }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['favorites'] });
+      
+      // Snapshot previous value
+      const previousFavorites = queryClient.getQueryData(['favorites']);
+      
+      // Optimistically update
+      queryClient.setQueryData(['favorites'], (old: string[]) => {
+        if (isFavorite) {
+          return [...(old || []), shopId];
+        }
+        return (old || []).filter(id => id !== shopId);
+      });
+      
+      return { previousFavorites };
+    },
+    
+    onError: (err, variables, context) => {
+      // Revert on error
+      queryClient.setQueryData(['favorites'], context?.previousFavorites);
+    },
+    
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['favorites'] });
+    },
+  });
+};
+
+// 3. Virtual scrolling for large lists
+import { FixedSizeList as List } from 'react-window';
+
+const ShopList = ({ shops }: { shops: BarberShop[] }) => {
+  const Row = ({ index, style }: { index: number; style: CSSProperties }) => (
+    <div style={style}>
+      <ShopCard shop={shops[index]} />
+    </div>
+  );
+
+  return (
+    <List
+      height={600}
+      itemCount={shops.length}
+      itemSize={200}
+      width="100%"
+    >
+      {Row}
+    </List>
+  );
+};
+```
+
+### Error Handling & Monitoring
+```typescript
+// 1. Global error boundary
+export class ErrorBoundary extends Component<
+  PropsWithChildren<{}>,
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: PropsWithChildren<{}>) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Log to monitoring service
+    console.error('Error caught by boundary:', error, errorInfo);
+    
+    // Send to error tracking service
+    if (process.env.NODE_ENV === 'production') {
+      // Sentry.captureException(error, { extra: errorInfo });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <Card className="p-6 max-w-md">
+            <CardHeader>
+              <CardTitle>Something went wrong</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                We've encountered an unexpected error. Please try refreshing the page.
+              </p>
+              <Button onClick={() => this.setState({ hasError: false })}>
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// 2. API error handling
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public code?: string,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export const handleApiError = (error: unknown): ApiError => {
+  if (error instanceof ApiError) {
+    return error;
+  }
+  
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status || 500;
+    const message = error.response?.data?.message || 'An error occurred';
+    const code = error.response?.data?.code;
+    const details = error.response?.data?.details;
+    
+    return new ApiError(message, status, code, details);
+  }
+  
+  return new ApiError('Unknown error occurred', 500);
+};
+
+// 3. Request/Response interceptors
+axios.interceptors.request.use(
+  (config) => {
+    const token = getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+axios.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const refreshToken = getRefreshToken();
+        const response = await authService.refreshToken(refreshToken);
+        setToken(response.accessToken);
+        
+        return axios(originalRequest);
+      } catch (refreshError) {
+        // Redirect to login
+        authService.logout();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
+    return Promise.reject(handleApiError(error));
+  }
+);
+```
+
+### Testing Infrastructure
+```typescript
+// 1. Test setup utilities
+// tests/setup.ts
+import { beforeAll, afterAll, afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import { server } from './mocks/server';
+
+// Mock service worker setup
+beforeAll(() => server.listen());
+afterEach(() => {
+  cleanup();
+  server.resetHandlers();
+});
+afterAll(() => server.close());
+
+// 2. Test utilities
+// tests/utils.tsx
+import { render, RenderOptions } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { store } from '../src/store';
+
+const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return (
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          {children}
+        </BrowserRouter>
+      </QueryClientProvider>
+    </Provider>
+  );
+};
+
+export const renderWithProviders = (
+  ui: React.ReactElement,
+  options?: Omit<RenderOptions, 'wrapper'>
+) => render(ui, { wrapper: AllTheProviders, ...options });
+
+// 3. Mock data factories
+// tests/factories.ts
+import { faker } from '@faker-js/faker';
+
+export const createMockUser = (overrides: Partial<User> = {}): User => ({
+  _id: faker.database.mongodbObjectId(),
+  email: faker.internet.email(),
+  role: 'customer',
+  profile: {
+    firstName: faker.person.firstName(),
+    lastName: faker.person.lastName(),
+    phone: faker.phone.number(),
+  },
+  isActive: true,
+  isVerified: true,
+  createdAt: faker.date.past(),
+  updatedAt: faker.date.recent(),
+  ...overrides,
+});
+
+export const createMockBarberShop = (overrides: Partial<BarberShop> = {}): BarberShop => ({
+  _id: faker.database.mongodbObjectId(),
+  name: faker.company.name(),
+  slug: faker.helpers.slugify(faker.company.name()),
+  ownerId: faker.database.mongodbObjectId(),
+  description: faker.lorem.paragraph(),
+  location: {
+    type: 'Point',
+    coordinates: [
+      parseFloat(faker.location.longitude()),
+      parseFloat(faker.location.latitude())
+    ],
+    address: faker.location.streetAddress(),
+    city: faker.location.city(),
+    state: faker.location.state(),
+    zipCode: faker.location.zipCode(),
+    country: 'US',
+  },
+  contact: {
+    phone: faker.phone.number(),
+    email: faker.internet.email(),
+  },
+  hours: {
+    monday: { isOpen: true, open: '09:00', close: '18:00' },
+    tuesday: { isOpen: true, open: '09:00', close: '18:00' },
+    wednesday: { isOpen: true, open: '09:00', close: '18:00' },
+    thursday: { isOpen: true, open: '09:00', close: '18:00' },
+    friday: { isOpen: true, open: '09:00', close: '18:00' },
+    saturday: { isOpen: true, open: '10:00', close: '16:00' },
+    sunday: { isOpen: false, open: '', close: '' },
+  },
+  images: [faker.image.url()],
+  services: [],
+  employees: [],
+  rating: {
+    average: faker.number.float({ min: 3, max: 5, fractionDigits: 1 }),
+    count: faker.number.int({ min: 0, max: 100 }),
+  },
+  isActive: true,
+  createdAt: faker.date.past(),
+  updatedAt: faker.date.recent(),
+  ...overrides,
+});
+```
+
+### Deployment & DevOps
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  mongodb:
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/barberhub?authSource=admin
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:3001/api/v1
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+
+volumes:
+  mongodb_data:
+  redis_data:
+```
+
+```dockerfile
+# Dockerfile.api
+FROM node:20-alpine AS base
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+FROM node:20-alpine AS dev
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+EXPOSE 3001
+CMD ["npm", "run", "dev"]
+
+FROM base AS production
+COPY . .
+RUN npm run build
+EXPOSE 3001
+CMD ["npm", "start"]
+
+# Dockerfile.web
+FROM node:20-alpine AS base
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+FROM node:20-alpine AS dev
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
+FROM base AS build
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine AS production
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+### CI/CD Pipeline
+```yaml
+# .github/workflows/ci.yml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:7
+        env:
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: password
+        ports:
+          - 27017:27017
+      
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd client && npm ci
+          cd ../server && npm ci
+      
+      - name: Run linting
+        run: |
+          npm run lint
+          cd client && npm run lint
+          cd ../server && npm run lint
+      
+      - name: Run type checking
+        run: |
+          cd client && npm run type-check
+          cd ../server && npm run type-check
+      
+      - name: Run tests
+        run: |
+          cd client && npm run test
+          cd ../server && npm run test
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://admin:password@localhost:27017/barberhub_test?authSource=admin
+          REDIS_URL: redis://localhost:6379
+      
+      - name: Run E2E tests
+        run: |
+          npm run test:e2e
+        env:
+          NODE_ENV: test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker images
+        run: |
+          docker build -f Dockerfile.api -t barberhub-api .
+          docker build -f Dockerfile.web -t barberhub-web .
+      
+      - name: Push to registry
+        run: |
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+          docker push barberhub-api
+          docker push barberhub-web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Deploy to production
+        run: |
+          # Add deployment scripts here
+          echo "Deploying to production..."
+```
+
+## 📝 Additional Recommendations
+
+### 1. Documentation Standards
+- **API Documentation**: Use OpenAPI/Swagger for API documentation
+- **Component Documentation**: Use Storybook for component library
+- **Code Documentation**: JSDoc for all public functions
+- **Architecture Decision Records (ADRs)**: Document important architectural decisions
+
+### 2. Monitoring & Analytics
+```typescript
+// Analytics integration
+interface AnalyticsEvent {
+  event: string;
+  properties: Record<string, any>;
+  userId?: string;
+  timestamp: Date;
+}
+
+class AnalyticsService {
+  track(event: AnalyticsEvent): void {
+    // Send to analytics service (e.g., Mixpanel, Amplitude)
+    if (process.env.NODE_ENV === 'production') {
+      // Analytics implementation
+    }
+  }
+  
+  trackPageView(page: string, userId?: string): void {
+    this.track({
+      event: 'page_view',
+      properties: { page },
+      userId,
+      timestamp: new Date(),
+    });
+  }
+  
+  trackBookingCreated(bookingId: string, userId: string): void {
+    this.track({
+      event: 'booking_created',
+      properties: { bookingId },
+      userId,
+      timestamp: new Date(),
+    });
+  }
+}
+```
+
+### 3. Performance Monitoring
+```typescript
+// Performance monitoring
+class PerformanceMonitor {
+  static measureApiCall<T>(
+    operation: string,
+    fn: () => Promise<T>
+  ): Promise<T> {
+    const start = performance.now();
+    
+    return fn().finally(() => {
+      const duration = performance.now() - start;
+      
+      if (duration > 1000) { // Log slow operations
+        console.warn(`Slow API call: ${operation} took ${duration}ms`);
+      }
+      
+      // Send metrics to monitoring service
+      this.sendMetric('api_call_duration', duration, { operation });
+    });
+  }
+  
+  private static sendMetric(
+    name: string,
+    value: number,
+    tags: Record<string, string>
+  ): void {
+    // Send to monitoring service (e.g., DataDog, New Relic)
+  }
+}
+
+// Usage
+const bookings = await PerformanceMonitor.measureApiCall(
+  'fetch_bookings',
+  () => bookingService.getAll()
+);
+```
+
+### 4. Accessibility Guidelines
+```typescript
+// Accessibility utilities
+export const a11yProps = {
+  // Screen reader labels
+  srOnly: (text: string) => ({
+    'aria-label': text,
+    className: 'sr-only',
+  }),
+  
+  // Skip links
+  skipLink: (href: string, text: string) => ({
+    href,
+    className: 'skip-link',
+    children: text,
+  }),
+  
+  // Focus management
+  focusTrap: {
+    'data-focus-trap': true,
+  },
+  
+  // ARIA live regions
+  liveRegion: (politeness: 'polite' | 'assertive' = 'polite') => ({
+    'aria-live': politeness,
+    'aria-atomic': 'true',
+  }),
+};
+
+// Component example with accessibility
+const BookingCard = ({ booking }: { booking: Booking }) => {
+  return (
+    <Card
+      role="article"
+      aria-labelledby={`booking-${booking.id}-title`}
+      tabIndex={0}
+    >
+      <CardHeader>
+        <CardTitle id={`booking-${booking.id}-title`}>
+          Appointment at {booking.shopName}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <time dateTime={booking.appointmentDate}>
+          {formatDate(booking.appointmentDate)}
+        </time>
+        <Button
+          aria-describedby={`booking-${booking.id}-description`}
+          onClick={() => handleCancel(booking.id)}
+        >
+          Cancel Booking
+        </Button>
+        <div id={`booking-${booking.id}-description`} className="sr-only">
+          Cancel your appointment scheduled for {formatDate(booking.appointmentDate)}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+```
+
+### 5. Mobile-First Considerations
+```css
+/* Tailwind utility classes for responsive design */
+.booking-card {
+  @apply flex flex-col p-4 bg-white rounded-lg shadow-md;
+  @apply sm:flex-row sm:items-center sm:p-6;
+  @apply md:max-w-2xl md:mx-auto;
+  @apply lg:max-w-4xl;
+}
+
+.booking-actions {
+  @apply flex flex-col space-y-2 mt-4;
+  @apply sm:flex-row sm:space-y-0 sm:space-x-2 sm:mt-0 sm:ml-auto;
+}
+
+/* Touch-friendly button sizing */
+.touch-target {
+  @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
+}
+
+```

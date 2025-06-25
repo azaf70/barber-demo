@@ -2,7 +2,19 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["src/*"],
+      "@ui/*": ["src/shared/components/ui/*"],
+      "@components/*": ["src/shared/components/*"],
+      "@utils/*": ["src/shared/utils/*"],
+      "@services/*": ["src/shared/services/*"],
+      "@features/*": ["src/features/*"],
+      "@features/customers/*": ["src/features/customers/*"],
+      "@features/barbers/*": ["src/features/barbers/*"],
+      "@features/admin/*": ["src/features/admin/*"],
+      "@shared/*": ["src/shared/*"],
+      "@shared/types/*": ["../shared/types/*"],
+      "@shared/schemas/*": ["../shared/schemas/*"],
+      "@shared/constants/*": ["../shared/constants/*"]
     }
   }
 } 
