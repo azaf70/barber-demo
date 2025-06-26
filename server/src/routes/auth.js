@@ -157,6 +157,51 @@ router.post('/login', [
   }
 });
 
+// @desc    Verify token
+// @route   GET /api/auth/verify-token
+router.get('/verify-token', auth.protect, async (req, res) => {
+    try {
+        // req.user is already the user object from auth middleware
+        // Just return the user data without password
+        const userResponse = {
+            _id: req.user._id,
+            firstName: req.user.firstName,
+            lastName: req.user.lastName,
+            email: req.user.email,
+            role: req.user.role,
+            phone: req.user.phone,
+            avatar: req.user.avatar,
+            isActive: req.user.isActive,
+            isVerified: req.user.isVerified,
+            ownedShops: req.user.ownedShops,
+            employedAt: req.user.employedAt,
+            bio: req.user.bio,
+            dateOfBirth: req.user.dateOfBirth,
+            address: req.user.address,
+            preferences: req.user.preferences,
+            lastLogin: req.user.lastLogin,
+            emailVerifiedAt: req.user.emailVerifiedAt,
+            phoneVerifiedAt: req.user.phoneVerifiedAt,
+            createdAt: req.user.createdAt,
+            updatedAt: req.user.updatedAt
+        };
+
+        res.json({
+            success: true,
+            message: 'Token is valid',
+            data: {
+                user: userResponse
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error verifying token',
+            error: error.message
+        });
+    }
+});
+
 // @desc    Get current user
 // @route   GET /api/auth/me
 // @access  Private

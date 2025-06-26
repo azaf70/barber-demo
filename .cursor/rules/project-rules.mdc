@@ -35,7 +35,7 @@ BarberHub is a comprehensive booking platform that connects customers with barbe
 - React 18.3+ with TypeScript 5.5+
 - Vite 6 (Build tool & dev server)
 - Tailwind CSS 4 (Styling)
-- shadcn/ui + Radix Primitives (UI Components)
+- shadcn/ui + Radix Primitives (UI Components) USE THEM AT ALL TIMES
 
 // State Management & Data Fetching
 - TanStack Query 5 (Server state)

@@ -7,7 +7,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "seed": "node src/data/seed.js"
+    "test:auth": "node test-auth-comprehensive.js",
+    "test:auth:verbose": "node test-auth-comprehensive.js --verbose",
+    "seed": "node src/data/seed.js",
+    "setup:test": "npm run seed && npm run test:auth"
   },
   "keywords": [
     "mern",

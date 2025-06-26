@@ -69,7 +69,7 @@ const UserMenu = ({ user, onLogout }) => (
       <Button variant="ghost" className="relative h-8 w-8 rounded-full">
         <Avatar className="h-8 w-8">
           <AvatarImage src={user.avatar} alt={user.firstName} />
-          <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
+          <AvatarFallback>{user.firstName?.[0] || '?'}{user.lastName?.[0] || '?'}</AvatarFallback>
         </Avatar>
       </Button>
     </DialogTrigger>
@@ -84,12 +84,12 @@ const UserMenu = ({ user, onLogout }) => (
         <div className="flex items-center space-x-4">
           <Avatar className="h-12 w-12">
             <AvatarImage src={user.avatar} alt={user.firstName} />
-            <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
+            <AvatarFallback>{user.firstName?.[0] || '?'}{user.lastName?.[0] || '?'}</AvatarFallback>
           </Avatar>
           <div>
             <p className="font-medium">{user.firstName} {user.lastName}</p>
             <p className="text-sm text-muted-foreground">{user.email}</p>
-            <p className="text-xs text-muted-foreground capitalize">{user.role.replace('_', ' ')}</p>
+            <p className="text-xs text-muted-foreground capitalize">{(user.role || '').replace('_', ' ') || 'Unknown'}</p>
           </div>
         </div>
         
@@ -211,7 +211,7 @@ export const Header = ({ user, onLogout }) => (
                 <div className="flex items-center space-x-3 px-6 py-4 border-b">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={user.avatar} alt={user.firstName} />
-                    <AvatarFallback>{user.firstName[0]}{user.lastName[0]}</AvatarFallback>
+                    <AvatarFallback>{user.firstName?.[0] || '?'}{user.lastName?.[0] || '?'}</AvatarFallback>
                   </Avatar>
                   <div>
                     <p className="font-medium">{user.firstName} {user.lastName}</p>

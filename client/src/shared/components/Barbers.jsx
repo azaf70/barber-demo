@@ -258,14 +258,14 @@ export const Barbers = () => {
                       </p>
                       
                       {barber.services && barber.services.length > 0 && (
-                        <div className="mb-4">
-                          <h5 className="font-medium text-sm mb-2">Specialties</h5>
-                          <div className="flex flex-wrap gap-1">
+                      <div className="mb-4">
+                        <h5 className="font-medium text-sm mb-2">Specialties</h5>
+                        <div className="flex flex-wrap gap-1">
                             {barber.services.slice(0, 3).map((serviceItem, index) => {
                               // Handle both nested structure (service.service) and direct structure
                               const service = serviceItem.service || serviceItem;
                               return (
-                                <Badge key={index} variant="outline" className="text-xs">
+                            <Badge key={index} variant="outline" className="text-xs">
                                   {service.name || service}
                                 </Badge>
                               );
@@ -273,9 +273,9 @@ export const Barbers = () => {
                             {barber.services.length > 3 && (
                               <Badge variant="outline" className="text-xs">
                                 +{barber.services.length - 3} more
-                              </Badge>
+                            </Badge>
                             )}
-                          </div>
+                      </div>
                         </div>
                       )}
                       

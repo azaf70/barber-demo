@@ -22,7 +22,7 @@ export const Login = ({ onLogin }) => {
 
     try {
       const userData = await authAPI.login(formData.email, formData.password)
-      onLogin(userData)
+      onLogin(userData.data.data)
     } catch (error) {
       setError(error.response?.data?.message || 'Login failed. Please try again.')
     } finally {
@@ -73,6 +73,7 @@ export const Login = ({ onLogin }) => {
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       required
                     />
+                    {formData.email} {formData.password}
                   </div>
                   
                   <div className="space-y-2">

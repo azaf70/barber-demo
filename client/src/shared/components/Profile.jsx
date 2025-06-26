@@ -7,6 +7,7 @@ import { Label } from '@ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@ui/avatar'
 import { User, Mail, Phone, MapPin, Calendar, Shield } from 'lucide-react'
 import { authAPI } from '@services/api'
+import PageHeader from './PageHeader'
 
 export const Profile = ({ user }) => {
   const [formData, setFormData] = useState({
@@ -19,6 +20,17 @@ export const Profile = ({ user }) => {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
+
+  // Sync formData with user prop changes
+  useEffect(() => {
+    setFormData({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      address: user.address || ''
+    })
+  }, [user])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -45,23 +57,12 @@ export const Profile = ({ user }) => {
     }
   }
 
+  console.log(user)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
-      <div className="bg-white dark:bg-slate-900 border-b">
-        <div className="container mx-auto px-4 py-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h1 className="text-4xl font-bold mb-4">Profile</h1>
-            <p className="text-xl text-muted-foreground">
-              Manage your account information and preferences
-            </p>
-          </motion.div>
-        </div>
-      </div>
+      <PageHeader title="Profile" subtitle="Manage your account information and preferences" />
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -79,7 +80,7 @@ export const Profile = ({ user }) => {
                     <Avatar className="h-24 w-24 mx-auto">
                       <AvatarImage src={user.avatar} alt={user.firstName} />
                       <AvatarFallback className="text-2xl">
-                        {user.firstName[0]}{user.lastName[0]}
+                        {user.firstName?.[0] || '?'}{user.lastName?.[0] || '?'}
                       </AvatarFallback>
                     </Avatar>
                   </div>

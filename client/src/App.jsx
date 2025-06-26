@@ -8,6 +8,7 @@ import { Header } from '@components/Header'
 import { HomePage } from '@features/customers/pages/HomePage'
 import { ShopsPage } from '@features/customers/pages/ShopsPage'
 import { ShopDetailPage } from '@features/customers/pages/ShopDetailPage'
+import SettingsPage from '@features/customers/pages/SettingsPage'
 
 // Barber Pages
 import DashboardPage from '@features/barbers/pages/DashboardPage'
@@ -219,6 +220,20 @@ function AppContent() {
                 variants={pageVariants}
               >
                 <Profile user={user} />
+              </motion.div>
+            ) : <Navigate to="/login" replace />
+          } />
+
+          <Route path="/settings" element={
+            user ? (
+              <motion.div
+                key="settings"
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                variants={pageVariants}
+              >
+                <SettingsPage />
               </motion.div>
             ) : <Navigate to="/login" replace />
           } />
