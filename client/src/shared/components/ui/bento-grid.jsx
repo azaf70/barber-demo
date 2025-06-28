@@ -1,5 +1,4 @@
-import React from "react";
-import { cn } from '@utils/utils';
+import { cn } from '@utils/utils'
 
 export const BentoGrid = ({
   className,

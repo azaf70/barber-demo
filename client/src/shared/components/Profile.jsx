@@ -11,26 +11,16 @@ import PageHeader from './PageHeader'
 
 export const Profile = ({ user }) => {
   const [formData, setFormData] = useState({
-    firstName: user.firstName || '',
-    lastName: user.lastName || '',
-    email: user.email || '',
-    phone: user.phone || '',
-    address: user.address || ''
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    bio: user?.bio || ''
   })
+
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
-
-  // Sync formData with user prop changes
-  useEffect(() => {
-    setFormData({
-      firstName: user.firstName || '',
-      lastName: user.lastName || '',
-      email: user.email || '',
-      phone: user.phone || '',
-      address: user.address || ''
-    })
-  }, [user])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -52,12 +42,11 @@ export const Profile = ({ user }) => {
     switch (role) {
       case 'customer': return 'Customer'
       case 'barber': return 'Barber/Shop Owner'
+      case 'shop_owner': return 'Shop Owner'
       case 'admin': return 'Administrator'
-      default: return role
+      default: return role?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'User'
     }
   }
-
-  console.log(user)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -78,21 +67,21 @@ export const Profile = ({ user }) => {
                 <CardHeader className="text-center">
                   <div className="mx-auto mb-4">
                     <Avatar className="h-24 w-24 mx-auto">
-                      <AvatarImage src={user.avatar} alt={user.firstName} />
+                      <AvatarImage src={user?.avatar} alt={user?.firstName} />
                       <AvatarFallback className="text-2xl">
-                        {user.firstName?.[0] || '?'}{user.lastName?.[0] || '?'}
+                        {user?.firstName?.[0] || '?'}{user?.lastName?.[0] || '?'}
                       </AvatarFallback>
                     </Avatar>
                   </div>
-                  <CardTitle className="text-xl">{user.firstName} {user.lastName}</CardTitle>
-                  <CardDescription>{user.email}</CardDescription>
+                  <CardTitle className="text-xl">{user?.firstName} {user?.lastName}</CardTitle>
+                  <CardDescription>{user?.email}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                     <Shield className="w-5 h-5 text-primary" />
                     <div>
                       <p className="font-medium text-sm">Account Type</p>
-                      <p className="text-sm text-muted-foreground">{getRoleDisplay(user.role)}</p>
+                      <p className="text-sm text-muted-foreground">{getRoleDisplay(user?.role)}</p>
                     </div>
                   </div>
                   
@@ -101,12 +90,12 @@ export const Profile = ({ user }) => {
                     <div>
                       <p className="font-medium text-sm">Member Since</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(user.createdAt).toLocaleDateString()}
+                        {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                       </p>
                     </div>
                   </div>
                   
-                  {user.phone && (
+                  {user?.phone && (
                     <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                       <Phone className="w-5 h-5 text-primary" />
                       <div>
@@ -116,12 +105,12 @@ export const Profile = ({ user }) => {
                     </div>
                   )}
                   
-                  {user.address && (
+                  {user?.bio && (
                     <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                      <MapPin className="w-5 h-5 text-primary" />
+                      <User className="w-5 h-5 text-primary" />
                       <div>
-                        <p className="font-medium text-sm">Address</p>
-                        <p className="text-sm text-muted-foreground">{user.address}</p>
+                        <p className="font-medium text-sm">Bio</p>
+                        <p className="text-sm text-muted-foreground">{user.bio}</p>
                       </div>
                     </div>
                   )}
@@ -209,12 +198,12 @@ export const Profile = ({ user }) => {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="address">Address</Label>
+                      <Label htmlFor="bio">Bio</Label>
                       <Input
-                        id="address"
-                        value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        placeholder="123 Main St, City, State 12345"
+                        id="bio"
+                        value={formData.bio}
+                        onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                        placeholder="Tell us about yourself..."
                       />
                     </div>
                     
@@ -230,11 +219,11 @@ export const Profile = ({ user }) => {
                         type="button" 
                         variant="outline"
                         onClick={() => setFormData({
-                          firstName: user.firstName || '',
-                          lastName: user.lastName || '',
-                          email: user.email || '',
-                          phone: user.phone || '',
-                          address: user.address || ''
+                          firstName: user?.firstName || '',
+                          lastName: user?.lastName || '',
+                          email: user?.email || '',
+                          phone: user?.phone || '',
+                          bio: user?.bio || ''
                         })}
                       >
                         Reset

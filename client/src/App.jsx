@@ -52,9 +52,11 @@ function AppContent() {
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (token) {
-      // Verify token and get user data
       authAPI.verifyToken()
-        .then(userData => setUser(userData))
+        .then(response => {
+          const userData = response.data.data.user
+          setUser(userData)
+        })
         .catch(() => {
           localStorage.removeItem('token')
           setUser(null)
@@ -66,7 +68,7 @@ function AppContent() {
   }, [])
 
   const handleLogin = (userData) => {
-    setUser(userData)
+    setUser(userData.user)
     localStorage.setItem('token', userData.token)
   }
 
@@ -233,7 +235,7 @@ function AppContent() {
                 exit="exit"
                 variants={pageVariants}
               >
-                <SettingsPage />
+                <SettingsPage user={user} />
               </motion.div>
             ) : <Navigate to="/login" replace />
           } />
